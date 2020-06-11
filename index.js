@@ -1,5 +1,6 @@
-require('dotenv').config()
-const token = process.env.DISCORD_TOKEN;
+require('dotenv').config();
+const discordEnvironment = `DISCORD_TOKEN_${process.argv.slice(-1)[0]?.toUpperCase()}`;
+const token = process.env[discordEnvironment];
 const Commands = require('./src/commands');
 const eris = require("eris");
 const client = new eris.Client(token);
@@ -12,7 +13,6 @@ const Models = require("./src/db/models");
 
 client.on('ready', async () => {
     await bonfireCache.createBonfire().catch((err) => console.warn(err));
-    console.log('bonfire? ', bonfireCache.bonfire)
 
     client.on('messageCreate', async (msg) => {
         const botWasMentioned = msg.content.startsWith(PREFIX);
