@@ -28,11 +28,14 @@ class User {
                 console.warn("Unable to find location: ", location);
                 break;
         }
-        console.log('made a user..this: ', this)
     }
 
     printName() {
         console.log(`Hello ${this.name}`);
+    }
+
+    getCurrentCarry() {
+        return Object.values(this.inventory).reduce((all, amount) => all + amount, 0);
     }
 }
 

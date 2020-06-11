@@ -12,38 +12,37 @@ const Models = require("./src/db/models");
 
 client.on('ready', async () => {
     await bonfireCache.createBonfire().catch((err) => console.warn(err));
-    // await bonfireCache.createMaptiles().catch((err) => console.warn(`Error creating maptiles: ${err}`));
     console.log('bonfire? ', bonfireCache.bonfire)
-
-    // client.on('userUpdate')
 
     client.on('messageCreate', async (msg) => {
         const botWasMentioned = msg.content.startsWith(PREFIX);
 
         if (botWasMentioned) {
             await msg.channel.sendTyping();
-            let messageCommandSplit = msg.content.slice(1, 2);
-            if (!commands.commandList.hasOwnProperty(messageCommandSplit)) {
-                messageCommandSplit = msg.content.slice(1);
-            }
-            const messageCommandContent = msg.content.slice(2);
-            const command = messageCommandSplit && commands.commandList[messageCommandSplit];
-            try {
-                let message = "Unknown command.";
-                if (command) {
-                    const user = await bonfireCache.getUser(msg.member.username);
-                    console.log('got user: ', user.name)
-                    try {
-                        message = await command.call(this, user, messageCommandContent);
-                    } catch (err) {
-                        console.warn(`error processing request: ${err}`);
-                        message = 'Houston, we have a problem.';
+            const [command, ...args] = msg.content.slice(1).split(" ");
+            console.log('command? ', command)
+
+            if (!commands.commandList.hasOwnProperty(command)) {
+                msg.channel.createMessage("Unknown command.");
+            } else {
+                const commandLookup = commands.commandList[command];
+                try {
+                    let message = "Unknown command.";
+                    if (commandLookup) {
+                        const user = await bonfireCache.getUser(msg.member.username);
+                        console.log('got user: ', user.name)
+                        try {
+                            message = await commandLookup.call(this, user, ...args);
+                        } catch (err) {
+                            console.warn(`error processing request: ${err}`);
+                            message = 'Houston, we have a problem.';
+                        }
+                        user.lastPrompt = command;
                     }
-                    user.lastPrompt = command;
+                    await msg.channel.createMessage(message);
+                } catch (err) {
+                    console.warn(`Had an err, boss: ${err}`);
                 }
-                await msg.channel.createMessage(message);
-            } catch (err) {
-                console.warn(`Had an err, boss: ${err}`);
             }
         }
     });
@@ -54,11 +53,6 @@ client.on('ready', async () => {
 });
 
 client.connect();
-
-
-// setTimeout(() => {
-//     client.();
-// }, 50000);
 
 module.exports = {
     bonfireCache,

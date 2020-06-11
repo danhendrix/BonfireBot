@@ -18,6 +18,10 @@ const user = new m.Schema({
     hunger: Number,
 });
 
+const base = new m.Schema({
+    inventory: Object,
+});
+
 const bonfire = new m.Schema({
     fireLevel: Number,
     neededForRescue: Number,
@@ -40,10 +44,12 @@ const User = m.model("User", user);
 const MapTile = m.model('MapTile', mapTile);
 const Map = m.model('Map', map);
 const Bonfire = m.model('Bonfire', bonfire);
+const Base = m.model('Base', base);
 
 module.exports = {
     User,
     Bonfire,
     MapTile,
     Map,
+    Base,
 };

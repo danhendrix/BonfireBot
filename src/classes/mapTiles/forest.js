@@ -1,4 +1,4 @@
-const { Items, MapTile } = require("./mapTile");
+const { ForageItems, Items, MapTile } = require("./mapTile");
 
 const dropObj = {
     [Items.wood]: {
@@ -21,16 +21,19 @@ const dropObj = {
         rate: .6,
         amount: [2, 3],
     },
-    [Items.berries]: {
+};
+
+const forageObj = {
+    [ForageItems.berries]: {
         rate: .3,
         amount: [2, 3, 4, 5],
     },
-    [Items.mushrooms]: {
+    [ForageItems.mushrooms]: {
         rate: .2,
         amount: [2, 3],
     },
-}
+};
 
-const Forest = new MapTile("Forest", dropObj);
+const Forest = new MapTile("Forest", dropObj, forageObj);
 
 module.exports = Forest;

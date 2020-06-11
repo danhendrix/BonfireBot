@@ -1,4 +1,4 @@
-const { Items, MapTile } = require("./mapTile");
+const { ForageItems, Items, MapTile } = require("./mapTile");
 
 const dropObj = {
     [Items.wetWood]: {
@@ -15,6 +15,6 @@ const dropObj = {
     },
 }
 
-const Beach = new MapTile("Beach", dropObj);
+const Beach = new MapTile("Beach", dropObj, {});
 
 module.exports = Beach;
