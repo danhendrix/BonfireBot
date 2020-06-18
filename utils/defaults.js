@@ -21,10 +21,17 @@ const user = (name, locationModel) => ({
     location: locationModel,
     capacity: 100,
     hunger: 0,
-})
+});
+
+const base = () => {
+    return {
+        inventory: {},
+    };
+};
 
 module.exports = {
     bonfire,
     mapTile,
     user,
+    base,
 };

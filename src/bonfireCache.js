@@ -6,13 +6,14 @@ const Defaults = require('../utils/defaults');
 const { Base } = require('./classes/base');
 
 class BonfireCache {
-    constructor(db) {
+    constructor(db, client) {
         this.db = db;
         this.users = {};
         this.bonfire = null;
         this.map = null;
         this.mapTile = null;
         this.base = null;
+        this.client = client;
     }
 
     createBonfire = async () => {
@@ -39,25 +40,29 @@ class BonfireCache {
                 console.warn(`Error loading base: ${err}`);
             });
             if (base) {
-                this.base = new Base(base);
+                this.base = new Base(base.inventory);
             } else {
                 const baseModel = new Models.Base();
-                await baseModel.save().catch((err) => {
+                const newBase = await baseModel.save().catch((err) => {
                     throw newError(`Error saving base: ${err}`);
                 });
-                this.base = new Base(baseModel);
+                this.base = new Base();
             }
         }
-        console.log('base? ', this.base)
     }
 
     removeWoodFromBonfireAndCheckBonfireStatus = async () => {
         await this.bonfire.removeFromBonfire(1)
         if (Date.now() > new Date(this.bonfire.rescueTime)) {
             // TODO: Check if user has won
+            if (this.bonfire.fireLevel >= this.bonfire.neededForRescue) {
+                await this.client.channel.createMessage("You did it! Your fire was big enough and you were rescued! Nice.");
+            } else {
+                await this.client.channel.createMessage("A ship passed by when you were gone but the fire wasn't big enough to be seen. Try again tomorrow");
+            }
             await Models.Bonfire.deleteOne({});
             this.bonfire = null
-            await this.createBonfire()
+            await this.createBonfire();
         }
         setTimeout(this.removeWoodFromBonfireAndCheckBonfireStatus, 60000)
     }
@@ -102,7 +107,7 @@ class BonfireCache {
 
     updateBase = async (base) => {
         try {
-            let baseDB = await Models.Base.findOne();
+            const baseDB = await Models.Base.findOne();
             baseDB.inventory = base.inventory;
             await baseDB.save();
             return "Base updated.";

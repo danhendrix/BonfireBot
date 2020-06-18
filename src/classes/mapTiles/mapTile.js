@@ -1,6 +1,5 @@
 const Items = {
     wetWood: 'Wet-Wood',
-    wetDeris: 'Wet-Debris',
     stone: 'Stone',
     wood: 'Wood',
     sticks: 'Sticks',
@@ -22,7 +21,6 @@ class MapTile {
         this.name = name;
         this.dropObj = dropObj;
         this.forageObj = forageObj;
-        console.log('forageObj? ', forageObj)
     }
     
     getGatherDrop = (type, maxLoad) => {

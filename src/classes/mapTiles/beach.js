@@ -5,10 +5,10 @@ const dropObj = {
         rate: .8,
         amount: [1,2],
     },
-    [Items.wetDeris]: {
-        rate: 1,
-        amount: [2,3],
-    },
+    // [Items.wetDeris]: {
+    //     rate: 1,
+    //     amount: [2,3],
+    // },
     [Items.stone]: {
         rate: .7,
         amount: [1,2],

@@ -7,7 +7,7 @@ const client = new eris.Client(token);
 const PREFIX = '!';
 const db = require('./src/db');
 const BonfireCache = require("./src/bonfireCache");
-const bonfireCache = new BonfireCache(db);
+const bonfireCache = new BonfireCache(db, client);
 const commands = new Commands(bonfireCache);
 const Models = require("./src/db/models");
 
@@ -20,7 +20,6 @@ client.on('ready', async () => {
         if (botWasMentioned) {
             await msg.channel.sendTyping();
             const [command, ...args] = msg.content.slice(1).split(" ");
-            console.log('command? ', command)
 
             if (!commands.commandList.hasOwnProperty(command)) {
                 msg.channel.createMessage("Unknown command.");
@@ -30,7 +29,6 @@ client.on('ready', async () => {
                     let message = "Unknown command.";
                     if (commandLookup) {
                         const user = await bonfireCache.getUser(msg.member.username);
-                        console.log('got user: ', user.name)
                         try {
                             message = await commandLookup.call(this, user, ...args);
                         } catch (err) {
@@ -49,6 +47,10 @@ client.on('ready', async () => {
 
     client.on('error', (error) => {
         console.warn(error);
+    });
+
+    client.on('guildMemberAdd', async (guild, member) => {
+        await msg.channel.createMessage(`Hello ${member.name}! Welcome to BonfireBot!`);
     });
 });
 

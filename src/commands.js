@@ -1,7 +1,7 @@
 const Models = require("./db/models");
-const { CraftMenu, Hunger } = require("../utils");
+const { CraftMenu, Hunger, FlammableItems } = require("../utils");
 const Locations = require("./classes/mapTiles");
-const { ForageItems } = require("./classes/mapTiles/mapTile");
+const { ForageItems, Items } = require("./classes/mapTiles/mapTile");
 
 const standardMenu = {
     base: "Shows current structures built in your base.",
@@ -25,6 +25,7 @@ class Commands {
             c: this.craft,
             d: this.drop,
             drop: this.drop,
+            dry: this.dry,
             eat: this.eat,
             e: this.eat,
             fire: this.fire,
@@ -63,6 +64,31 @@ class Commands {
         user.inventory[formattedCommand] -= Math.min((amount || user.inventory[formattedCommand]), user.inventory[formattedCommand]);
         this.bonfireCache.updateUser(user);
         return "Dropped.";
+    }
+
+    dry = async (user, arg) => {
+        if ("Drying-Rack" in this.bonfireCache.base.inventory === false) {
+            return "You do not have a drying rack.";
+        }
+        
+        const wetWood = user.inventory[Items.wetWood];
+        console.log('wet? ', wetWood)
+        if (!wetWood) {
+            return "You do not have any wet wood to dry.";
+        }
+        if (!!arg && isNaN(+arg)) {
+            return "Must be a valid number.";
+        }
+        user.inventory = {
+            ...user.inventory,
+            [Items.wood]: user.inventory[Items.wood] + (arg ? Math.min(+arg, wetWood) : wetWood),
+        };
+        if (arg) {
+            user.inventory[Items.wetWood] -= Math.min(+arg, wetWood);
+        } else {
+            delete user.inventory[Items.wetWood];
+        }
+        return this.bonfireCache.updateUser(user, "Wood is now dry.");
     }
 
     eat = async (user, command, amountToEat) => {
@@ -120,7 +146,7 @@ class Commands {
         return `Yum! Ate ${count} food`;
     }
 
-    fire = async (user, command, arg) => {
+    fire = async (user, command, type, amount) => {
         console.log('command? ', command)
         if (user.location.name !== "Beach") {
             return "Not available from your location.";
@@ -136,16 +162,48 @@ class Commands {
             case "STATUS":
                 return `Fire Level: ${this.bonfireCache.bonfire.fireLevel}\nRescue time: ${this.bonfireCache.bonfire.rescueTime}`;
             case "ADD": {
-                const amount = +arg;
-                console.log('amount?? ', amount)
-                if (isNaN(amount) || amount < 1) {
-                    return "Must specify amount to add";
+                if (amount && (isNaN(amount) || amount < 1)) {
+                    return "Must specify valid amount to add";
                 }
-                if (user.inventory.Wood < amount) {
-                    return "You don't have enough wood.";
+                type = type && type.charAt(0).toUpperCase() + type.slice(1);
+                let fireAddition;
+                const flammableItemKeys = Object.keys(FlammableItems);
+                amount = isNaN(+amount)
+                    ? null
+                    :+amount;
+
+                if (!type) {
+                    const availableToBurn = Object.entries(user.inventory).reduce((all, [key, val]) => {
+                        if (flammableItemKeys.includes(key)) {
+                            all += (val * FlammableItems[key]);
+                        }
+                        return all;
+                    }, 0);
+                    if (!availableToBurn) {
+                        return "You have nothing to add to the fire.";
+                    }
+                    flammableItemKeys.forEach((item) => {
+                        user.inventory[item] = 0;
+                    });
+                    fireAddition = availableToBurn;
+                } else {
+                    if (!flammableItemKeys.includes(type)) {
+                        return "That is not a flammable item.";
+                    }
+                    if (amount) {
+                        if (user.inventory[type] < amount) {
+                            return "You do not have that much";
+                        
+                        }
+                        user.inventory[type] -= amount;
+                        fireAddition = FlammableItems[type] * amount;
+                    } else {
+                        fireAddition = FlammableItems[type] * user.inventory[type];
+                        user.inventory[type] = 0;
+                    }
                 }
-                await this.bonfireCache.bonfire.addToBonfire(amount);
-                user.inventory.Wood -= amount;
+    
+                await this.bonfireCache.bonfire.addToBonfire(fireAddition);
                 message = `Added to fire. Fire level now: ${this.bonfireCache.bonfire.fireLevel}`;
                 await this.bonfireCache.updateUser(user, message)
                 break;
@@ -179,7 +237,8 @@ class Commands {
                 return all;
             }, "");
         } else {
-            const cmd = command.charAt(0).toUpperCase() + command.slice(1)?.toLowerCase();
+            debugger;
+            const cmd = command.split('-').map((item) => item.charAt(0).toUpperCase() + item.slice(1)?.toLowerCase()).join('-');
             console.log('cmd? ', cmd)
             if (!CraftMenu.hasOwnProperty(cmd)) {
                 return "Invalid craft command.";
@@ -196,7 +255,6 @@ class Commands {
 
             // Valid craft command.
             const materials = CraftMenu[cmd].materials;
-            console.log('materials? ', materials)
             const haveMaterials = Object.keys(materials).every((key) => {
                 return user.inventory[key] >= materials[key];
             });
@@ -207,14 +265,13 @@ class Commands {
 
             if (CraftMenu[cmd].isBaseItem) {
                 this.bonfireCache.base.inventory[cmd] = 1;
-                console.log('cache base now: ', this.bonfireCache.base)
                 Object.entries(CraftMenu[cmd].materials).forEach(([name, val]) => {
                     user.inventory[name] -= val;
                 });
                 await this.bonfireCache.updateUser(user);
                 await this.bonfireCache.updateBase(this.bonfireCache.base);
 
-                return "You now have a shelter!";
+                return `You now have a ${cmd}!`;
             } else {
                 Object.entries(materials).forEach(([name, quantity]) => {
                     user.inventory[name] -= quantity;
@@ -245,7 +302,7 @@ class Commands {
     }
 
     killPlayer = async (user) => {
-        this.bonfireCache.users[user.name] = null;
+        delete this.bonfireCache.users[user.name];
         await Models.User.findOneAndDelete({ name: user.name });
         this.bonfireCache.getUser(user.name);
     }
@@ -272,7 +329,9 @@ class Commands {
             }
         });
 
-        const message = `Gathering!...You gathered \n${loot.reduce((all, lootItem) => `${all}    ${lootItem.key}: ${lootItem.amount}\n`, "")}`;
+        const message = loot.length
+            ? `Gathering!...You gathered \n${loot.reduce((all, lootItem) => `${all}    ${lootItem.key}: ${lootItem.amount}\n`, "")}`
+            : "You couldn't find anything useful.";
         return await this.bonfireCache.updateUser(user, message);
     }
 
@@ -288,19 +347,25 @@ class Commands {
         }
         let message;
         switch (direction && direction.toUpperCase()) {
+            case 'FOREST':
             case 'F': {
                 user.location = Locations.Forest;
                 message = 'Location is now Forest.';
                 break;
             }
+            case 'MOUNTAIN':
+            case 'MOUNTAINS':
             case 'M':
-                user.location.name = Locations.Mountains;
+                user.location = Locations.Mountains;
                 message = 'Location is now Mountains.';
                 break;
+            case 'GRASSLANDS':
+            case 'GRASSLAND':
             case 'G':
                 user.location = Locations.Grasslands;
                 message = 'Location is now Grasslands.';
                 break;
+            case 'BEACH':
             case 'B':
                 user.location = Locations.Beach;
                 message = 'Location is now Beach.';

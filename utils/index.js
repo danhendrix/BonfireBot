@@ -38,9 +38,27 @@ const CraftMenu = {
         onlyOneAllowed: true,
         isBaseItem: true,
     },
+    'Drying-Rack': {
+        materials: {
+            [Items.stone]: 5,
+            [Items.sticks]: 15,
+            [Items.wood]: 5,
+        },
+        onlyOneAllowed: true,
+        isBaseItem: true,
+    },
+};
+
+const FlammableItems = {
+    [Items.sticks]: 1,
+    [Items.leaves]: 1,
+    [Items.wood]: 5,
+    [Items.rope]: 4,
+    [Items.coal]: 10,
 };
 
 module.exports = {
     Hunger,
     CraftMenu,
+    FlammableItems,
 };
