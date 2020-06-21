@@ -228,7 +228,7 @@ class Commands {
         }, ``)}`;
     }
 
-    craft = async (user, command) => {
+    craft = async (user, command, arg) => {
         if (!command || command.toUpperCase() === "MENU") {
             return Object.entries(CraftMenu).reduce((all, [material, inputObj]) => {
                 all += `${material}:${Object.entries(inputObj.materials).map(([inputMaterial, inputQuantity]) => {
@@ -237,7 +237,6 @@ class Commands {
                 return all;
             }, "");
         } else {
-            debugger;
             const cmd = command.split('-').map((item) => item.charAt(0).toUpperCase() + item.slice(1)?.toLowerCase()).join('-');
             console.log('cmd? ', cmd)
             if (!CraftMenu.hasOwnProperty(cmd)) {
@@ -253,10 +252,16 @@ class Commands {
                 }
             }
 
+            if (!!arg && isNaN(+arg)) {
+                return "Amount must be a valid number.";
+            }
+
+            const amount = +arg || 1;
+            console.log('amount? ', amount)
             // Valid craft command.
             const materials = CraftMenu[cmd].materials;
             const haveMaterials = Object.keys(materials).every((key) => {
-                return user.inventory[key] >= materials[key];
+                return user.inventory[key] >= (materials[key] * (amount ?? 1));
             });
 
             if (!haveMaterials) {
@@ -271,15 +276,16 @@ class Commands {
                 await this.bonfireCache.updateUser(user);
                 await this.bonfireCache.updateBase(this.bonfireCache.base);
 
-                return `You now have a ${cmd}!`;
+                return `The base now has a ${cmd}!`;
             } else {
                 Object.entries(materials).forEach(([name, quantity]) => {
-                    user.inventory[name] -= quantity;
+                    console.log('removing this much: ', quantity * amount)
+                    user.inventory[name] -= (quantity * amount);
                 });
 
-                user.inventory[cmd] = 1;
+                user.inventory[cmd] = ((user.inventory[cmd] ?? 0) + amount);
                 await this.bonfireCache.updateUser(user);
-                return `You did it!. Now you have a ${cmd}`;
+                return `You did it!. Enjoy your new ${cmd}`;
             }
         }
     }
