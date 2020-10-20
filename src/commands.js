@@ -72,7 +72,6 @@ class Commands {
         }
         
         const wetWood = user.inventory[Items.wetWood];
-        console.log('wet? ', wetWood)
         if (!wetWood) {
             return "You do not have any wet wood to dry.";
         }
