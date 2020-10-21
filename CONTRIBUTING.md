@@ -3,7 +3,7 @@
 If you'd like to contribute, let's start by getting the bot running locally on your machine.
 
 ### Requirements
-+ Node
++ Node 14.x
 + Yarn
 + MongoDB
 + Text Editor (VSCode recommended)
