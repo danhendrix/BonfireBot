@@ -13,6 +13,7 @@ If you'd like to contribute, let's start by getting the bot running locally on y
 + First, start by forking the repo
 + Once you have the code, navigate to the project folder in your terminal and run `yarn`.
     - This will install any needed dependencies
++ You'll need to have MongoDB running. Installing the MongoDB extension in VSCode can help with this if you're having problems.
 + Run `yarn develop` to run the bot locally without connecting to Discord.
 + If you'd like to run the bot in your own server, follow these steps:
     - Create a bot in your Discord settings and note your bot token
