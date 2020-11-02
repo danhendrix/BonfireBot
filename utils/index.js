@@ -57,8 +57,37 @@ const FlammableItems = {
     [Items.coal]: 10,
 };
 
+const sendStandardMessage = (client, msg, message) => {
+    if (client) {
+        return client.createMessage(msg.channel.id, {
+            embed: {
+                title: message,
+                author: { // Author property
+                    name: msg.author.username,
+                    icon_url: msg.author.avatarURL
+                },
+                color: 0x008000, // Color, either in hex (show), or a base-10 integer
+            }
+        });
+    }
+    return message;
+}
+
+const mockClient = {
+    createMessage(msg, obj) {
+        console.log('sending msg: ', JSON.stringify(obj));
+    },
+    channel: {
+        createMessage(msg, obj) {
+            console.log('sending msg: ', JSON.stringify(obj));
+        }
+    }
+};
+
 module.exports = {
     Hunger,
     CraftMenu,
     FlammableItems,
+    sendStandardMessage,
+    mockClient,
 };

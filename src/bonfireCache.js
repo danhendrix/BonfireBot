@@ -56,9 +56,12 @@ class BonfireCache {
         if (Date.now() > new Date(this.bonfire.rescueTime)) {
             // TODO: Check if user has won
             if (this.bonfire.fireLevel >= this.bonfire.neededForRescue) {
-                await this.client.channel.createMessage("You did it! Your fire was big enough and you were rescued! Nice.");
+                console.log("The user won! With a firelevel of ", this.bonfire.fireLevel)
+                console.log('and required: ', this.bonfire.neededForRescue)
+                await this.client?.channel?.createMessage("You did it! Your fire was big enough and you were rescued! Nice.");
             } else {
-                await this.client.channel.createMessage("A ship passed by when you were gone but the fire wasn't big enough to be seen. Try again tomorrow");
+                console.log('they missed rescue')
+                await this.client?.channel?.createMessage("A ship passed by when you were gone but the fire wasn't big enough to be seen. Try again tomorrow");
             }
             await Models.Bonfire.deleteOne({});
             this.bonfire = null

@@ -1,7 +1,9 @@
 const Models = require("./db/models");
-const { CraftMenu, Hunger, FlammableItems } = require("../utils");
+const { CraftMenu, Hunger, FlammableItems, sendStandardMessage } = require("../utils");
 const Locations = require("./classes/mapTiles");
 const { ForageItems, Items } = require("./classes/mapTiles/mapTile");
+const emojis = require('../utils/emojis');
+const emojiLookup = require("../utils/emojis");
 
 const standardMenu = {
     base: "Shows current structures built in your base.",
@@ -21,8 +23,9 @@ class Commands {
         this.commandList = {
             base: this.base,
             b: this.base,
-            craft: this.craft,
-            c: this.craft,
+            // TODO add these back
+            // craft: this.craft,
+            // c: this.craft,
             d: this.drop,
             drop: this.drop,
             dry: this.dry,
@@ -41,29 +44,40 @@ class Commands {
             m: this.move,
             status: this.displayStatus,
             s: this.displayStatus,
-            stockpile: this.stockpile,
         };
     }
 
-    base = () => {
-        console.log('inventory? ', this.bonfireCache.base.inventory)
-        return `Your base: ${Object.keys(this.bonfireCache.base.inventory)}`;
+    base = (client, msg) => {
+        return client.createMessage(msg?.channel?.id, {
+            embed: {
+                title: "Your base:", // Title of the embed
+                author: { // Author property
+                    name: msg?.author?.username,
+                    icon_url: msg?.author?.avatarURL
+                },
+                color: 0x008000, // Color, either in hex (show), or a base-10 integer
+                fields: Object.entries(this.bonfireCache.base?.inventory).map(([key, val]) => ({
+                    name: key,
+                    value: val,
+                })),
+            },
+        });
     }
 
-    drop = async (user, item, amount) => {
+    drop = async (client, msg, user, item, amount) => {
         if (!item || (amount && typeof +amount !== "number")) {
-            return "Must specify item and valid number. To drop all items of specified type leave amount blank.";
+            return sendStandardMessage(client, msg, "Must specify item and valid number. To drop all items of specified type leave amount blank.");
         }
 
         let formattedCommand = item.split('-').map((splitItem) => splitItem.charAt(0).toUpperCase() + splitItem.slice(1).toLowerCase()).join("-");
         if (!user.inventory.hasOwnProperty(formattedCommand)) {
-            return "You don't have any of those.";
+            return sendStandardMessage(client, msg, "You don't have any of those.");
         }
 
 
         user.inventory[formattedCommand] -= Math.min((amount || user.inventory[formattedCommand]), user.inventory[formattedCommand]);
-        this.bonfireCache.updateUser(user);
-        return "Dropped.";
+        await this.bonfireCache.updateUser(user);
+        return sendStandardMessage(client, msg, "Dropped.");
     }
 
     dry = async (user, arg) => {
@@ -90,7 +104,7 @@ class Commands {
         return this.bonfireCache.updateUser(user, "Wood is now dry.");
     }
 
-    eat = async (user, command, amountToEat) => {
+    eat = async (client, msg, user, command, amountToEat) => {
         console.log('eating')
         const edibleItems = Object.values(ForageItems).filter((item) => user.inventory.hasOwnProperty(item));
         let howHungry = user.hunger;
@@ -109,18 +123,20 @@ class Commands {
                         user.inventory[item] = 0;
                     });
                     await this.bonfireCache.updateUser(user);
-                    return "Yum!"
+                    return sendStandardMessage(client, msg, "Yum!")
                 } else {
-                    return this.findFoodToEat(user, amountOnHand, howHungry, amountOnHand, edibleItems);
+                    const eatMessage = await this.findFoodToEat(user, amountOnHand, howHungry, amountOnHand, edibleItems);
+                    return sendStandardMessage(client, msg, eatMessage);
                 }
             }
             default: {
-                return this.findFoodToEat(user, 10, howHungry, amountOnHand, edibleItems);
+                const eatMessage = await this.findFoodToEat(user, 10, howHungry, amountOnHand, edibleItems);
+                return sendStandardMessage(client, msg, eatMessage);
             }
         }
     }
 
-    findFoodToEat(user, max, howHungry, amountOnHand, edibleItems) {
+    async findFoodToEat(user, max, howHungry, amountOnHand, edibleItems) {
         let count = 0;
         let foodTypeIndex = 0;
         while (amountOnHand && howHungry && (count < max) && (edibleItems.length > foodTypeIndex)) {
@@ -141,28 +157,82 @@ class Commands {
 
             foodTypeIndex++;
         }
-
+        await this.bonfireCache.updateUser(user);
         return `Yum! Ate ${count} food`;
     }
 
-    fire = async (user, command, type, amount) => {
-        console.log('command? ', command)
+    fire = async (client, msg, user, command, type, amount) => {
         if (user.location.name !== "Beach") {
-            return "Not available from your location.";
+            return client.createMessage(msg?.channel?.id, {
+                embed: {
+                    title: "Not available from your location.",
+                    author: { // Author property
+                        name: msg?.author?.username,
+                        icon_url: msg?.author?.avatarURL
+                    },
+                    color: 0x008000, // Color, either in hex (show), or a base-10 integer
+                }
+            });
         }
         if (!command) {
-            return "Bonfire command required.";
+            return client.createMessage(msg?.channel?.id, {
+                embed: {
+                    title: "Bonfire command required.",
+                    author: { // Author property
+                        name: msg?.author?.username,
+                        icon_url: msg?.author?.avatarURL
+                    },
+                    color: 0x008000, // Color, either in hex (show), or a base-10 integer
+                }
+            });
         }
         let message;
         switch (command.toUpperCase()) {
             case "MENU": {
-                return `(Status) - Display status of bonfire.\n(Add #) - Add wood to the fire.`;
+                return client.createMessage(msg?.channel?.id, {
+                    embed: {
+                        title: `(Status) - Display status of bonfire.\n(Add #) - Add wood to the fire.`,
+                        author: { // Author property
+                            name: msg?.author?.username,
+                            icon_url: msg?.author?.avatarURL
+                        },
+                        color: 0x008000, // Color, either in hex (show), or a base-10 integer
+                    }
+                });
             }
             case "STATUS":
-                return `Fire Level: ${this.bonfireCache.bonfire.fireLevel}\nRescue time: ${this.bonfireCache.bonfire.rescueTime}`;
+                return client.createMessage(msg?.channel?.id, {
+                    embed: {
+                        title: `Fire Level ${emojiLookup.FIRE}`,
+                        author: { // Author property
+                            name: msg?.author?.username,
+                            icon_url: msg?.author?.avatarURL
+                        },
+                        color: 0x008000, // Color, either in hex (show), or a base-10 integer,
+                        fields: [
+                            {
+                                name: "Fire Level",
+                                value: this.bonfireCache.bonfire.fireLevel,
+                            },
+                            {
+                                name: "Rescue Time",
+                                value: this.bonfireCache.bonfire.rescueTime,
+                            },
+                        ]
+                    }
+                });
             case "ADD": {
                 if (amount && (isNaN(amount) || amount < 1)) {
-                    return "Must specify valid amount to add";
+                    return client.createMessage(msg?.channel?.id, {
+                        embed: {
+                            title: "Must specify valid amount to add",
+                            author: { // Author property
+                                name: msg?.author?.username,
+                                icon_url: msg?.author?.avatarURL
+                            },
+                            color: 0x008000, // Color, either in hex (show), or a base-10 integer
+                        }
+                    });
                 }
                 type = type && type.charAt(0).toUpperCase() + type.slice(1);
                 let fireAddition;
@@ -179,7 +249,16 @@ class Commands {
                         return all;
                     }, 0);
                     if (!availableToBurn) {
-                        return "You have nothing to add to the fire.";
+                        return client.createMessage(msg?.channel?.id, {
+                            embed: {
+                                title: "You have nothing to add to the fire.",
+                                author: { // Author property
+                                    name: msg?.author?.username,
+                                    icon_url: msg?.author?.avatarURL
+                                },
+                                color: 0x008000, // Color, either in hex (show), or a base-10 integer
+                            }
+                        });
                     }
                     flammableItemKeys.forEach((item) => {
                         user.inventory[item] = 0;
@@ -187,12 +266,29 @@ class Commands {
                     fireAddition = availableToBurn;
                 } else {
                     if (!flammableItemKeys.includes(type)) {
-                        return "That is not a flammable item.";
+                        return client.createMessage(msg?.channel?.id, {
+                            embed: {
+                                title: "That is not a flammable item.",
+                                author: { // Author property
+                                    name: msg?.author?.username,
+                                    icon_url: msg?.author?.avatarURL
+                                },
+                                color: 0x008000, // Color, either in hex (show), or a base-10 integer
+                            }
+                        });
                     }
                     if (amount) {
                         if (user.inventory[type] < amount) {
-                            return "You do not have that much";
-                        
+                            return client.createMessage(msg?.channel?.id, {
+                                embed: {
+                                    title: "You do not have that much",
+                                    author: { // Author property
+                                        name: msg?.author?.username,
+                                        icon_url: msg?.author?.avatarURL
+                                    },
+                                    color: 0x008000, // Color, either in hex (show), or a base-10 integer
+                                }
+                            });
                         }
                         user.inventory[type] -= amount;
                         fireAddition = FlammableItems[type] * amount;
@@ -203,7 +299,7 @@ class Commands {
                 }
     
                 await this.bonfireCache.bonfire.addToBonfire(fireAddition);
-                message = `Added to fire. Fire level now: ${this.bonfireCache.bonfire.fireLevel}`;
+                message = `Added to fire. ${emojiLookup.FIRE} - ${this.bonfireCache.bonfire.fireLevel}`;
                 await this.bonfireCache.updateUser(user, message)
                 break;
             }
@@ -211,23 +307,43 @@ class Commands {
                 message = "Unknown bonfire command.";
                 break;
         }
-        return message;
+        return client.createMessage(msg?.channel?.id, {
+            embed: {
+                title: message,
+                author: { // Author property
+                    name: msg?.author?.username,
+                    icon_url: msg?.author?.avatarURL
+                },
+                color: 0x008000, // Color, either in hex (show), or a base-10 integer
+            }
+        });
     }
 
-    displayHelp(user) {
+    displayHelp(client, msg, user) {
         const menu = JSON.parse(JSON.stringify(standardMenu));
         if (user.location.name === 'Beach') {
             menu['B'] = 'Bonfire - (S)tatus (A)dd(#)';
             menu['C'] = 'Craft - Type';
             menu["Base"] = 'Display Base';
         }
-        return `Welcome to Bonfire!\n\nHere are the available commands:
-            ${Object.entries(menu).reduce((all, [key, val]) => {
-            return `${all}\n${key} - ${val}`;
-        }, ``)}`;
+        return client.createMessage(msg?.channel?.id, {
+            embed: {
+                title: "Help!", // Title of the embed
+                author: { // Author property
+                    name: msg?.author?.username,
+                    icon_url: msg?.author?.avatarURL
+                },
+                color: 0x008000, // Color, either in hex (show), or a base-10 integer
+                fields: Object.entries(menu).map(([key, val]) => ({
+                    name: key,
+                    value: val,
+                })),
+            },
+        });
     }
 
-    craft = async (user, command, arg) => {
+    craft = async (client, msg, user, command, arg) => {
+        // TODO craft menu is broken, it needs to use the new embedded components
         if (!command || command.toUpperCase() === "MENU") {
             return Object.entries(CraftMenu).reduce((all, [material, inputObj]) => {
                 all += `${material}:${Object.entries(inputObj.materials).map(([inputMaterial, inputQuantity]) => {
@@ -289,20 +405,20 @@ class Commands {
         }
     }
 
-    forage = async (user) => {
-        return this.gather(user, true);
+    forage = async (client, msg, user) => {
+        return this.gather(client, msg, user, true);
     }
 
-    checkStarved(user) {
+    checkStarved(client, msg, user) {
         if (
             Object.entries(user.inventory).some(([key, val]) => {
                 return ((key in ForageItems) && val)
             })
         ) {
-            return "You don't have the strength. You need to eat.";
+            return sendStandardMessage(client, msg, "You don't have the strength. You need to eat.");
         } else {
             this.killPlayer(user);
-            return "You don't have the strength. You you feel so weak you don't think you can go on. And you don't. Goodbye.";
+            return sendStandardMessage(client, msg, "You don't have the strength. You you feel so weak you don't think you can go on. And you don't. Goodbye.");
         }
     }
 
@@ -312,17 +428,16 @@ class Commands {
         this.bonfireCache.getUser(user.name);
     }
 
-    gather = async (user, isForage = false) => {
-        // TODO: This calculates if the user has enough room to gather wood based only on wood inventory.
-        // should be expanded to look up all inventory for weight.
+    gather = async (client, msg, user, isForage = false) => {
+        console.log('client? ', client)
         const remainingCapacity = user.capacity - user.getCurrentCarry();
         if (remainingCapacity <= 0) {
-            return "You can't carry any more.";
+            return sendStandardMessage(client, msg, "You can't carry any more.");
         }       
         const loot = user.location.getGatherDrop((isForage ? 'forage' : 'gather'),  remainingCapacity);
         const hungerAmount = Hunger.gather;
         if (user.hunger + hungerAmount >= 100) {
-            return this.checkStarved(user);
+            return sendStandardMessage(client, msg, this.checkStarved(client, msg, user));
         }
         user.hunger += hungerAmount;
 
@@ -334,28 +449,89 @@ class Commands {
             }
         });
 
-        const message = loot.length
-            ? `Gathering!...You gathered \n${loot.reduce((all, lootItem) => `${all}    ${lootItem.key}: ${lootItem.amount}\n`, "")}`
-            : "You couldn't find anything useful.";
-        return await this.bonfireCache.updateUser(user, message);
+        await this.bonfireCache.updateUser(user);
+        if (loot.length) {
+            return client.createMessage(msg?.channel?.id, {
+                embed: {
+                    title: "Found something!", // Title of the embed
+                    author: { // Author property
+                        name: msg?.author?.username,
+                        icon_url: msg?.author?.avatarURL
+                    },
+                    color: 0x008000, // Color, either in hex (show), or a base-10 integer
+                    fields: loot.map((item) => ({
+                        name: item.key,
+                        value: item.amount
+                    })),
+                },
+            });
+        } else {
+            return sendStandardMessage(client, msg, "You couldn't find anything useful.");
+        }
     }
 
-    displayStatus(user) {
-        console.log('inside display status with user: ', user)
-        return `STATUS - Name: ${user.name}.\nLocation: ${user.location && user.location.name}\nHealth: ${user.health}\nHunger: ${user.hunger}\nInventory:\n${Object.entries(user.inventory).filter(([key, val]) => val).reduce((all, [key, val]) => { all += "    " + key + ": " + val + "\n"; return all;}, "")}\nTotal Inventory: ${user.getCurrentCarry()}/${user.capacity}`;
+    displayStatus(client, msg, user) {
+        console.log('inside display status with client: ', client)
+        return client.createMessage(msg?.channel?.id, {
+            embed: {
+                title: "Status", // Title of the embed
+                author: { // Author property
+                    name: msg?.author?.username,
+                    icon_url: msg?.author?.avatarURL
+                },
+                color: 0x008000, // Color, either in hex (show), or a base-10 integer
+                fields: [ // Array of field objects
+                    {
+                        name: "Name", // Field title
+                        value: user.name, // Field
+                        inline: true // Whether you want multiple fields in same line
+                    },
+                    {
+                        name: "Location",
+                        value: user.location?.name ?? "Unknown",
+                        inline: true,
+                    },
+                    {
+                        name: `Health ${emojis.HEALTH}`,
+                        value: user.health,
+                        inline: true,
+                    },
+                    {
+                        name: `Hunger ${emojis.HUNGER}`,
+                        value: user.hunger,
+                        inline: true,
+                    },
+                    {
+                        name: `Inventory ${emojis.INVENTORY}`,
+                        value: "test",
+                        inline: false,
+                    },
+                    ...Object.entries(user.inventory).filter(([key, val]) => val).map(([key, val]) => ({
+                        name: key,
+                        value: val
+                    })),
+                ],
+                // footer: { // Footer text
+                //     text: "Created with Eris."
+                // }
+            }
+        });
+// nTotal Inventory: ${user.getCurrentCarry()}/${user.capacity}`;
     }
 
-    move = async (user, direction) => {
+    move = async (client, msg, user, direction) => {
         console.log('direction? ', direction)
         if (!direction) {
             return `Must specify a destination.`;
         }
         let message;
+        let icon;
         switch (direction && direction.toUpperCase()) {
             case 'FOREST':
             case 'F': {
                 user.location = Locations.Forest;
                 message = 'Location is now Forest.';
+                icon = "evergreen_tree";
                 break;
             }
             case 'MOUNTAIN':
@@ -363,17 +539,20 @@ class Commands {
             case 'M':
                 user.location = Locations.Mountains;
                 message = 'Location is now Mountains.';
+                icon = "mountain_snow";
                 break;
             case 'GRASSLANDS':
             case 'GRASSLAND':
             case 'G':
                 user.location = Locations.Grasslands;
                 message = 'Location is now Grasslands.';
+                icon = "leafy_green";
                 break;
             case 'BEACH':
             case 'B':
                 user.location = Locations.Beach;
                 message = 'Location is now Beach.';
+                icon = "beach";
                 break;
             default:
                 message = "Destination not found.";
@@ -382,10 +561,21 @@ class Commands {
 
         const hungerAmount = Hunger.move;
         if (user.hunger + hungerAmount >= 100) {
-            return this.checkStarved(user);
+            return this.checkStarved(client, msg, user);
         }
         user.hunger += hungerAmount;
-        return await this.bonfireCache.updateUser(user, message);
+        await this.bonfireCache.updateUser(user, message);
+
+        return client.createMessage(msg?.channel?.id, {
+            embed: {
+                title: `Location is now :${icon}: ${user.location.name}`,
+                author: { // Author property
+                    name: msg?.author?.username,
+                    icon_url: msg?.author?.avatarURL
+                },
+                color: 0x008000, // Color, either in hex (show), or a base-10 integer
+            }
+        });
     }
 }
 
