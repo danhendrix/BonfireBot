@@ -127,6 +127,7 @@ async function handleMessage(client, msg, name, isDeveloping = false) {
 
 if (input === "DEVELOP") {
     console.log('we are developing.');
+    getOrCreateBonfire();
     handleMessage(mockClient, null, null, true);
 } else {
     client.on('ready', async () => {
