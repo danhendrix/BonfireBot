@@ -15,7 +15,7 @@
     "discord.js": "^12.0.2",
     "dotenv": "^8.2.0",
     "eris": "^0.11.2",
-    "express": "^4.17.1",
+    "express": "^4.17.3",
     "mongoose": "^5.9.7",
     "morgan": "^1.10.0",
     "mysql2": "^2.1.0"
